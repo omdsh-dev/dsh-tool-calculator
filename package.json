@@ -1,0 +1,19 @@
+{
+  "name": "@dsh-external/dsh-tool-calculator",
+  "version": "0.1.0",
+  "description": "DSH 计算器工具插件：安全的数学表达式求值器，零依赖递归下降解析器",
+  "type": "module",
+  "main": "./lib/index.js",
+  "types": "./lib/index.d.ts",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^2.0.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dsh-external/dsh-tool-calculator"
+  }
+}
