@@ -32,10 +32,7 @@ export function apply(ctx: Context): void {
       schema: { type: 'number' },
       render: (_args, value) => [{ type: 'text', text: String(value) }],
     },
-    execute: async (args) => {
-      const { expression } = args as { expression: string }
-      return evaluate(expression)
-    },
+    execute: args => evaluate(args.expression),
     timeoutMs: 1000,
   }))
 }
