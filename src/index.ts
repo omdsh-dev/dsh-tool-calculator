@@ -32,7 +32,7 @@ export function apply(ctx: Context): void {
       schema: { type: 'number' },
       render: (_args, value) => [{ type: 'text', text: String(value) }],
     },
-    execute: args => evaluate(args.expression),
+    execute: args => Promise.resolve(evaluate(args.expression)),
     timeoutMs: 1000,
   }))
 }
