@@ -5,18 +5,41 @@
  * 语法层按优先级递归下降求值；标识符按名查白名单表，查不到即抛错。
  * 任何形式的代码注入（constructor.constructor 链、process 全局、
  * 引号注入、分号语句等）均被词法/语法层拒绝。
+ *
+ * 白名单边界（审查 CALC-01）：FUNCTIONS/CONSTANTS 用 Object.hasOwn 判断，
+ * 不落入 Object.prototype 继承属性（constructor/toString/__proto__ 等）。
  */
 
-const FUNCTIONS: Record<string, (...args: number[]) => number> = {
-  abs: Math.abs, ceil: Math.ceil, floor: Math.floor, round: Math.round,
-  sqrt: Math.sqrt, pow: Math.pow, log: Math.log, log2: Math.log2,
-  log10: Math.log10, exp: Math.exp, sin: Math.sin, cos: Math.cos,
-  tan: Math.tan, max: Math.max, min: Math.min,
+/** 函数白名单：每个函数声明参数个数契约（CALC-02），多余/缺失参数拒绝。 */
+interface FunctionSpec {
+  fn: (...args: number[]) => number
+  minArgs: number
+  maxArgs: number
+}
+
+const FUNCTIONS: Record<string, FunctionSpec> = {
+  abs: { fn: Math.abs, minArgs: 1, maxArgs: 1 },
+  ceil: { fn: Math.ceil, minArgs: 1, maxArgs: 1 },
+  floor: { fn: Math.floor, minArgs: 1, maxArgs: 1 },
+  round: { fn: Math.round, minArgs: 1, maxArgs: 1 },
+  sqrt: { fn: Math.sqrt, minArgs: 1, maxArgs: 1 },
+  pow: { fn: Math.pow, minArgs: 2, maxArgs: 2 },
+  log: { fn: Math.log, minArgs: 1, maxArgs: 1 },
+  log2: { fn: Math.log2, minArgs: 1, maxArgs: 1 },
+  log10: { fn: Math.log10, minArgs: 1, maxArgs: 1 },
+  exp: { fn: Math.exp, minArgs: 1, maxArgs: 1 },
+  sin: { fn: Math.sin, minArgs: 1, maxArgs: 1 },
+  cos: { fn: Math.cos, minArgs: 1, maxArgs: 1 },
+  tan: { fn: Math.tan, minArgs: 1, maxArgs: 1 },
+  max: { fn: Math.max, minArgs: 1, maxArgs: Infinity },
+  min: { fn: Math.min, minArgs: 1, maxArgs: Infinity },
 }
 
 const CONSTANTS: Record<string, number> = {
   PI: Math.PI, E: Math.E,
 }
+
+const MAX_EXPRESSION_LENGTH = 500
 
 /** 词法分析：将输入字符串拆分为 token 数组 */
 function tokenize(input: string): string[] {
@@ -27,6 +50,10 @@ function tokenize(input: string): string[] {
     if (/[0-9]/.test(ch) || (ch === '.' && i + 1 < input.length && /[0-9]/.test(input.charAt(i + 1)))) {
       const m = /^(?:\d+(?:\.\d*)?|\.\d+)/.exec(input.slice(i))
       if (!m) throw new Error(`Invalid number at position ${i}`)
+      // CALC-06：数字后紧跟 e/E 是科学计数法形态（含 1e、1e+、1e-5），专门报错
+      if (/[eE]/.test(input.charAt(i + m[0].length))) {
+        throw new Error('Scientific notation is not supported')
+      }
       tokens.push(m[0]); i += m[0].length; continue
     }
     if (/[A-Za-z_]/.test(ch)) {
@@ -34,7 +61,7 @@ function tokenize(input: string): string[] {
       if (!m) throw new Error(`Invalid identifier at position ${i}`)
       tokens.push(m[0]); i += m[0].length; continue
     }
-    if (ch === '*' && input[i + 1] === '*') { tokens.push('**'); i += 2; continue }
+    if (ch === '*' && input.charAt(i + 1) === '*') { tokens.push('**'); i += 2; continue }
     if ('+-*/%(),'.includes(ch)) { tokens.push(ch); i++; continue }
     throw new Error(`Invalid character "${ch}" at position ${i}`)
   }
@@ -97,11 +124,12 @@ function parse(input: string): number {
     if (t === ')') throw new Error('Unexpected ")"')
     if (/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(t)) return Number(t)
     if (/^[A-Za-z_]\w*$/.test(t)) {
-      if (t in CONSTANTS) {
+      // CALC-01：own-property 白名单（Object.hasOwn 不落入原型链）
+      if (Object.hasOwn(CONSTANTS, t)) {
         if (peek() === '(') throw new Error(`"${t}" is a constant, not a function`)
-        return CONSTANTS[t]!
+        return CONSTANTS[t] as number
       }
-      if (t in FUNCTIONS) {
+      if (Object.hasOwn(FUNCTIONS, t)) {
         if (take() !== '(') throw new Error(`Missing "(" after function "${t}"`)
         const args: number[] = []
         if (peek() !== ')') {
@@ -109,7 +137,15 @@ function parse(input: string): number {
           while (peek() === ',') { take(); args.push(parseAdd()) }
         }
         if (take() !== ')') throw new Error(`Missing ")" after arguments of "${t}"`)
-        return FUNCTIONS[t]!(...args)
+        // CALC-02：参数个数契约校验
+        const spec = FUNCTIONS[t] as FunctionSpec
+        if (args.length < spec.minArgs || args.length > spec.maxArgs) {
+          const expected = spec.minArgs === spec.maxArgs
+            ? String(spec.minArgs)
+            : `at least ${spec.minArgs}`
+          throw new Error(`Invalid argument count for "${t}": expected ${expected}, got ${args.length}`)
+        }
+        return spec.fn(...args)
       }
       throw new Error(`Unknown identifier "${t}"`)
     }
@@ -121,10 +157,14 @@ function parse(input: string): number {
   return value
 }
 
-/** 公开接口：求值表达式，返回有限数字；NaN/Infinity 或其他错误均抛错 */
-const MAX_EXPRESSION_LENGTH = 500
-
-export function evaluate(expression: string): number {
+/**
+ * 公开接口：求值表达式，返回有限数字；NaN/Infinity 或其他错误均抛错。
+ * CALC-05：入口独立校验类型（不依赖上游 schema 校验）。
+ */
+export function evaluate(expression: unknown): number {
+  if (typeof expression !== 'string') {
+    throw new Error('calculator: expression must be a string')
+  }
   if (expression.length > MAX_EXPRESSION_LENGTH) {
     throw new Error(`Expression too long (${expression.length} > ${MAX_EXPRESSION_LENGTH})`)
   }

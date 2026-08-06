@@ -18,7 +18,7 @@ Agent 做算术不稳定是 LLM 的通病。DSH 内置的 `bash` 工具可以调
 **无 `eval`、无 `new Function`。** 使用手写递归下降解析器（词法层 + 语法层），只求值白名单节点：
 
 - 词法层只识别数字字面量、白名单标识符、运算符；引号、分号、反引号、`{}` `[]` 直接报错
-- 标识符按名查白名单表（18 个函数 + 2 个常量），查不到即抛 `Unknown identifier`
+- 标识符按名查白名单表（15 个函数 + 2 个常量），查不到即抛 `Unknown identifier`
 - 求值结果必须是有限数字，`NaN`/`Infinity`（除零、负数开方等）统一拒绝
 
 `new Function` + 正则白名单是**不安全的**——`constructor.constructor(...)` 可直达 `Function` 构造器执行任意代码，`process.exit(0)` 可直接杀死宿主进程（均已实测复现）。本实现不使用任何代码求值捷径。
@@ -44,7 +44,7 @@ Agent 做算术不稳定是 LLM 的通病。DSH 内置的 `bash` 工具可以调
 ```
 
 - `src/index.ts`：Cordis 插件入口（`name`/`inject`/`apply`），注册 `calculator` 工具
-- `src/evaluate.ts`：`evaluate(expression: string): number`——输入表达式，返回有限数字，非法输入全部抛错
+- `src/evaluate.ts`：`evaluate(expression: unknown): number`——入口独立校验类型（非字符串抛 `calculator: expression must be a string`），返回有限数字，非法输入全部抛错
 
 ## 工具声明
 
@@ -128,11 +128,16 @@ cp -r dsh-tool-calculator ~/.dsh/source/master/packages/tools/dsh-tool-calculato
 { "path": "./packages/tools/dsh-tool-calculator" }
 ```
 
-**5. 构建并验证**
+**5. 验证**
 
 ```bash
 pnpm install
-pnpm run build
+pnpm test              # 本地单测（源码仓库不内置 build 脚本，集成后由 monorepo 宿主构建）
+```
+
+集成后在 DSH monorepo 根执行 `pnpm run build` 并验证：
+
+```bash
 dsh -p "15+27*3 用calculator工具计算"
 ```
 

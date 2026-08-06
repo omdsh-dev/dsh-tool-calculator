@@ -104,3 +104,48 @@ describe('evaluate', () => {
     expect(() => evaluate(long)).toThrow('Expression too long')
   })
 })
+
+// ── 审查回归（2026-08-06 review report）──
+
+describe('review regressions', () => {
+  it('CALC-01: rejects Object.prototype inherited names (own-property whitelist)', () => {
+    for (const name of ['constructor', '__proto__', 'toString', 'valueOf', 'hasOwnProperty', 'isPrototypeOf']) {
+      expect(() => evaluate(name)).toThrow('Unknown identifier')
+    }
+  })
+
+  it('CALC-01: inherited names with call syntax are rejected as identifiers', () => {
+    expect(() => evaluate('constructor(1)')).toThrow('Unknown identifier')
+    expect(() => evaluate('toString(1)')).toThrow('Unknown identifier')
+  })
+
+  it('CALC-02: rejects wrong argument counts', () => {
+    expect(() => evaluate('sqrt(9, 1)')).toThrow('argument count')
+    expect(() => evaluate('pow(2)')).toThrow('argument count')
+    expect(() => evaluate('pow(2, 3, 4)')).toThrow('argument count')
+    expect(() => evaluate('sin(1, 2, 3)')).toThrow('argument count')
+    expect(() => evaluate('abs()')).toThrow('argument count')
+  })
+
+  it('CALC-02: variadic max/min still accept multiple args', () => {
+    expect(evaluate('max(1, 2, 3)')).toBe(3)
+    expect(evaluate('min(4, 2, 9)')).toBe(2)
+  })
+
+  it('CALC-05: rejects non-string input at the pure-function boundary', () => {
+    expect(() => evaluate(undefined as unknown as string)).toThrow('calculator: expression must be a string')
+    expect(() => evaluate(42 as unknown as string)).toThrow('calculator: expression must be a string')
+  })
+
+  it('CALC-06: scientific notation gets a dedicated error', () => {
+    expect(() => evaluate('1e5')).toThrow('Scientific notation is not supported')
+    expect(() => evaluate('1e-5')).toThrow('Scientific notation is not supported')
+    expect(() => evaluate('6.02e23')).toThrow('Scientific notation is not supported')
+    expect(() => evaluate('1E+3')).toThrow('Scientific notation is not supported')
+    expect(() => evaluate('1e')).toThrow('Scientific notation is not supported')
+  })
+
+  it('boundary: empty expression rejects', () => {
+    expect(() => evaluate('')).toThrow()
+  })
+})
