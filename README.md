@@ -92,55 +92,44 @@ export function apply(ctx: Context): void {
 
 优先级：`**`（右结合）> 一元 `±` > `* / %` > `+ -`。
 
+## 版本适配
+
+- **适配 DSH snapshot**: `20260806T160212Z-279244acb0`（0806 迁移：profile/bundle 插件系统）
+- **bundle 声明**: `package.json` 的 `dsh.bundle`（patch 指向 `cordis.patch.yml`）+ `exports` 导出
+- **patch 格式**: `cordis.patch.yml` 使用 `- insert:` 列表（0806 的 patch 是 id-targeted 语义，裸 `- id:` 条目会报 `entry not found`）
+- **files**: 发布 tarball 含 `lib/`、`src/`、`cordis.patch.yml`
+
 ## 接入方式
 
-### 前置条件
+### 方式 A：DSH profile 插件安装（0806+，推荐）
 
-- DSH monorepo（`snapshot-20260803T142347Z-25b2ad4f67` 或更新）
-- `@deepseek-ai/dsh-tools` 通过 monorepo workspace 可用
-
-### 步骤
-
-**1. 放入 monorepo**
+等 `@deepseek-ai/dsh-tools` 发布到 npm 后，本插件可作为独立 bundle 一键安装到任意 profile：
 
 ```bash
-cp -r dsh-tool-calculator ~/.dsh/source/master/packages/tools/dsh-tool-calculator
+dsh plugin --profile headless add @dsh-external/dsh-tool-calculator
+dsh plugin --profile web add @dsh-external/dsh-tool-calculator
 ```
 
-> DSH 使用 `packages/*/*` 两层 workspace 模式。本包必须放在 `packages/tools/` 下。
+包内 `dsh.bundle` 声明（patch 指向 `cordis.patch.yml`）会在安装后自动把插件加入 profile 的 layer stack；插件的 `cordis.patch.yml` 以 `- insert:` 插入 `tool-calculator` 条目。插件缺失的 peer 依赖（`cordis`、`@deepseek-ai/dsh-tools`）由 profile 的 healed `profiles/node_modules` 回退安装提供。
 
-**2. 注册依赖**（`apps/cli/package.json`）
+### 方式 B：monorepo 集成 + profile patch（当前可用）
 
-```json
-"@deepseek-ai/dsh-tool-calculator": "workspace:^"
-```
+在 `@deepseek-ai/dsh-tools` 发布前，走 DSH monorepo：
 
-**3. 配置 cordis.yml**（`apps/cli/config/base.cordis.yml`）
+1. 放入 monorepo：`cp -r calculator ~/.dsh/source/master/packages/tools/calculator`
+2. `apps/cli/package.json` 加 `"@deepseek-ai/calculator": "workspace:^"`；`tsconfig.host.json` references 加 `{ "path": "./packages/tools/calculator" }`
+3. `pnpm install && pnpm run build`（monorepo 根构建，产出 `lib/`）
+4. 在 profile 用户层 patch 插入插件（`~/.dsh/profiles/<name>/cordis.patch.yml`）：
 
 ```yaml
-- id: tool-calculator
-  name: '@deepseek-ai/dsh-tool-calculator'
+- insert:
+    - id: tool-calculator
+      name: '@deepseek-ai/calculator'
 ```
 
-**4. 注册 tsconfig 引用**（`tsconfig.host.json` 的 `references`）
+5. 验证：`dsh --profile <name> --dump-config | grep tool-calculator`
 
-```json
-{ "path": "./packages/tools/dsh-tool-calculator" }
-```
-
-**5. 验证**
-
-```bash
-pnpm install
-pnpm test              # 本地单测（源码仓库不内置 build 脚本，集成后由 monorepo 宿主构建）
-```
-
-集成后在 DSH monorepo 根执行 `pnpm run build` 并验证：
-
-```bash
-dsh -p "15+27*3 用calculator工具计算"
-```
-
+> 0806 注意：patch 是 id-targeted 语义——裸 `- id:` 条目会报 `entry "xxx" not found`，必须用 `- insert:` 列表包裹。
 ## 用法
 
 安装后，agent 自动获得 `calculator` 工具：

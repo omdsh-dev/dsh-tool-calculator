@@ -1,19 +1,31 @@
 {
-  "name": "@dsh-external/dsh-tool-calculator",
-  "version": "0.1.0",
-  "description": "DSH 计算器工具插件：安全的数学表达式求值器，零依赖递归下降解析器",
+  "name": "@deepseek-ai/dsh-tool-calculator",
+  "description": "DSH calculator tool",
+  "version": "0.0.1",
+  "private": true,
   "type": "module",
-  "main": "./lib/index.js",
-  "types": "./lib/index.d.ts",
-  "scripts": {
-    "test": "vitest run"
+  "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
+  "peerDependencies": {
+    "@deepseek-ai/dsh-tools": "*",
+    "cordis": "*"
   },
-  "devDependencies": {
-    "vitest": "^2.0.0"
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
   },
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/dsh-external/dsh-tool-calculator"
-  }
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "src",
+    "cordis.patch.yml"
+  ]
 }
