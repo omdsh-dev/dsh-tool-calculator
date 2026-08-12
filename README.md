@@ -49,7 +49,7 @@ Agent 做算术不稳定是 LLM 的通病。DSH 内置的 `bash` 工具可以调
 ## 工具声明
 
 ```ts
-import type { Context } from 'cordis'
+import type { Context } from '@deepseek-ai/cordis'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { evaluate } from './evaluate.ts'
 
@@ -91,6 +91,16 @@ export function apply(ctx: Context): void {
 | 分组 | `(` `)`，一元正负 `+5` `-5` |
 
 优先级：`**`（右结合）> 一元 `±` > `* / %` > `+ -`。
+
+## npm rc.1 兼容（已验证）
+
+本插件已迁移到 npm rc.1 依赖线，并在 `@deepseek-ai/dsh@0.0.1-rc.1` 的隔离 consumer 中完成全链路验证：
+
+- **类型/运行时**：`@deepseek-ai/cordis@^4.0.1-rc.1` + `@deepseek-ai/dsh-tools@^0.0.1-rc.1` + `@deepseek-ai/dsh-invariants@^0.0.1-rc.1`（peer）；不再依赖 unscoped `cordis`
+- **独立构建**：`npm install`（devDependencies 自包含 typescript/vitest/@types/node）→ `npm run typecheck` → `npm test` → `npm run build` → `npm pack`
+- **消费验证**：tarball 装入 rc.1 consumer → `dsh --profile compat --dump-config` 出现本插件 row → 工具真实注册与执行通过
+- **启动方式**：`npx -p @deepseek-ai/dsh@0.0.1-rc.1 dsh web`（lib 生产模式；勿 `install -g` 全局安装）
+
 
 ## 版本适配
 
