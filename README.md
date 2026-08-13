@@ -1,5 +1,7 @@
 # dsh-tool-calculator
 
+[English](README.en.md)
+
 DSH 计算器工具插件 —— 安全的数学表达式求值器。零依赖、零进程、纯函数。
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
