@@ -94,37 +94,47 @@ export function apply(ctx: Context): void {
 
 Precedence: `**` (right-associative) > unary `±` > `* / %` > `+ -`.
 
-## npm rc.1 Compatibility (Verified)
+## npm 0.1.0-rc.6 Compatibility (Verified)
 
-This plugin has been migrated to the npm rc.1 dependency line and fully verified end-to-end in an isolated consumer of `@deepseek-ai/dsh@0.0.1-rc.1`:
+This plugin has been migrated to the npm 0.1.0-rc.6 dependency line and fully verified end-to-end in an isolated consumer of `@deepseek-ai/dsh@0.1.0-rc.6`:
 
-- **Types/runtime**: `@deepseek-ai/cordis@^4.0.1-rc.1` + `@deepseek-ai/dsh-tools@^0.0.1-rc.1` + `@deepseek-ai/dsh-invariants@^0.0.1-rc.1` (peer); no longer depends on unscoped `cordis`
+- **Types/runtime**: `@deepseek-ai/cordis: ^4.0.1` + `@deepseek-ai/dsh-tools: >=0.0.1-rc.1 <0.2.0` + `@deepseek-ai/dsh-invariants: >=0.0.1-rc.1 <0.2.0` (peer); no longer depends on unscoped `cordis`
 - **Standalone build**: `npm install` (devDependencies self-contained: typescript/vitest/@types/node) → `npm run typecheck` → `npm test` → `npm run build` → `npm pack`
-- **Consumption verification**: tarball loaded into an rc.1 consumer → `dsh --profile compat --dump-config` shows this plugin's row → the tool genuinely registers and executes
-- **Launch method**: `npx -p @deepseek-ai/dsh@0.0.1-rc.1 dsh web` (lib production mode; don't `install -g` globally)
+- **Consumption verification**: tarball loaded into a 0.1.0-rc.6 consumer → `dsh --profile compat --dump-config` shows this plugin's row → the tool genuinely registers and executes
+- **Launch method**: `npx -p @deepseek-ai/dsh@0.1.0-rc.6 dsh web` (lib production mode; don't `install -g` globally)
 
 
 ## Version Adaptation
 
-- **DSH snapshot adapted**: `20260806T160212Z-279244acb0` (0806 migration: profile/bundle plugin system)
+- **DSH adapted**: DSH 0.1.0-rc.6 (npm) (migration: profile/bundle plugin system)
 - **bundle declaration**: `dsh.bundle` in `package.json` (patch points to `cordis.patch.yml`) + `exports` export
-- **patch format**: `cordis.patch.yml` uses the `- insert:` list (the 0806 patch is id-targeted semantics; a bare `- id:` entry reports `entry not found`)
+- **patch format**: `cordis.patch.yml` uses the `- insert:` list (the DSH 0.1.0-rc.6 (npm) patch is id-targeted semantics; a bare `- id:` entry reports `entry not found`)
 - **files**: the published tarball contains `lib/`, `src/`, `cordis.patch.yml`
 
 ## Installation
 
 ### Profile Bundle (Recommended)
 
-Install this plugin into a profile as a standalone bundle (0806+):
+As of DSH 0.1.0-rc.6 (npm), this plugin can be installed into any profile as a standalone bundle in one step (repositories live at https://github.com/omdsh-dev, public):
 
 ```sh
 # 交互式（web）profile
-dsh plugin --profile web add "C:/path/to/dsh-tool-calculator"
+dsh plugin --profile web add github:omdsh-dev/dsh-tool-calculator
 # 一次性任务（headless）profile —— dsh run 默认使用 headless
-dsh plugin --profile headless add "C:/path/to/dsh-tool-calculator"
+dsh plugin --profile headless add github:omdsh-dev/dsh-tool-calculator
 ```
 
-The in-package `dsh.bundle.patch` (pointing to `cordis.patch.yml`) automatically adds the plugin to the profile's layer stack after installation; the plugin's `cordis.patch.yml` inserts the `tool-calculator` entry via `- insert:`. The plugin's missing peer dependencies (`cordis`, `@deepseek-ai/dsh-tools`) are provided by the profile's healed `profiles/node_modules` fallback installation.
+You can also pack a tarball with `npm pack` first and install that:
+
+```sh
+git clone https://github.com/omdsh-dev/dsh-tool-calculator
+cd dsh-tool-calculator
+npm install && npm pack
+dsh plugin --profile web add ./deepseek-ai-dsh-tool-calculator-*.tgz
+dsh plugin --profile headless add ./deepseek-ai-dsh-tool-calculator-*.tgz
+```
+
+The in-package `dsh.bundle.patch` (pointing to `cordis.patch.yml`) automatically adds the plugin to the profile's layer stack after installation; the plugin's `cordis.patch.yml` inserts the `tool-calculator` entry via `- insert:`. The plugin's missing peer dependencies (`@deepseek-ai/cordis`, `@deepseek-ai/dsh-tools`, `@deepseek-ai/dsh-invariants`) are provided by the profile's healed `profiles/node_modules` fallback installation.
 
 > ⚠️ web and headless are **different profiles**: installing for web doesn't automatically cover headless; `dsh run` uses the headless profile by default. Use forward slashes for Windows paths (`C:/...`).
 
@@ -140,9 +150,9 @@ dsh --profile web --dump-config | grep tool-calculator
 dsh run "使用 calculator 工具计算 1+2*3"
 ```
 
-### Manual Installation and Legacy Compatibility
+### Manual Installation (Source Contribution / Legacy Snapshot Scenarios)
 
-Only for old snapshots that don't support Profile Bundle, or plugin development/debugging environments:
+For source contribution (developing/debugging this plugin in the monorepo) or for scenarios still using old snapshots:
 
 1. Place it in the monorepo: `cp -r calculator ~/.dsh/source/master/packages/tools/calculator` (dev debugging)
 2. Add `"@deepseek-ai/dsh-tool-calculator": "workspace:^"` to `apps/cli/package.json`; add `{ "path": "./packages/tools/calculator" }` to the `tsconfig.host.json` references
@@ -157,7 +167,7 @@ Only for old snapshots that don't support Profile Bundle, or plugin development/
 
 5. Verify: `dsh --profile <name> --dump-config | grep tool-calculator`
 
-> 0806 note: the patch is id-targeted semantics — a bare `- id:` entry reports `entry "xxx" not found`; it must be wrapped in a `- insert:` list.
+> DSH 0.1.0-rc.6 (npm) note: the patch is id-targeted semantics — a bare `- id:` entry reports `entry "xxx" not found`; it must be wrapped in a `- insert:` list.
 ## Usage
 
 After installation, the agent automatically gets the `calculator` tool:
@@ -170,7 +180,7 @@ The tool name satisfies DeepSeek's function-name constraints (≤64 characters, 
 
 ## Known Limitations
 
-1. **Distribution chain**: `@deepseek-ai/dsh-tools` is a private package in the DSH monorepo (not published to npm); this plugin must be placed in the monorepo to resolve through workspaces
+1. **Distribution chain**: `@deepseek-ai/dsh-tools` is now published as a private npm package with DSH 0.1.0-rc.6 (npm); the plugin installs directly via `dsh plugin add github:omdsh-dev/...` or the tarball, with no need to place it in the monorepo for workspace resolution
 2. **Trigonometric functions use radians**: consistent with `Math.sin`/`Math.cos`; write `sin(30 * PI / 180)` when you need degrees
 3. **No big integers**: JS `number` is an IEEE 754 double; the safe integer range is ±9e15, beyond which precision is lost
 4. **No scientific notation**: `1e5` is rejected by the lexer layer
